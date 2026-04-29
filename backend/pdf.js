@@ -1,4 +1,4 @@
-const pdfParse = require("pdf-parse");
+const pdfParse = require("pdf-parse"); // stable version now
 const mammoth = require("mammoth");
 const textract = require("textract");
 
@@ -12,9 +12,9 @@ async function extractText(buffer, mimeType = "", originalName = "") {
 
     console.log("📄 FILE TYPE:", mimeType, type);
 
-    // ================= PDF (ONLY PDF PARSER) =================
+    // ================= PDF =================
     if (mimeType === "application/pdf" || type === "pdf") {
-      const data = await pdfParse(buffer);
+      const data = await pdfParse(buffer); // ✅ WILL WORK NOW
       text = data.text || "";
     }
 
@@ -46,22 +46,19 @@ async function extractText(buffer, mimeType = "", originalName = "") {
       text = buffer.toString("utf-8");
     }
 
-    // ================= UNSUPPORTED =================
+    // ================= INVALID =================
     else {
       throw new Error("Unsupported file type");
     }
 
-    // ================= FINAL CHECK =================
+    // ================= VALIDATION =================
     if (!text || text.trim().length < 10) {
-      throw new Error(
-        "No readable text found. PDF may be scanned image-based."
-      );
+      throw new Error("No readable text found in document");
     }
 
     return text;
   } catch (err) {
     console.error("❌ Parser error:", err.message);
-
     return `ERROR: ${err.message}`;
   }
 }
