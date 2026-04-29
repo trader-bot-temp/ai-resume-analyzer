@@ -3,44 +3,48 @@ require("dotenv").config();
 async function callGemini(prompt) {
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      "https://api.groq.com/openai/v1/chat/completions",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
         },
         body: JSON.stringify({
-          contents: [
+          model: "llama-3.3-70b-versatile", // ✅ FIXED MODEL
+          messages: [
             {
-              parts: [{ text: prompt }],
+              role: "system",
+              content:
+                "Return ONLY valid JSON. No explanation. No markdown.",
+            },
+            {
+              role: "user",
+              content: prompt,
             },
           ],
+          temperature: 0.2,
         }),
       }
     );
 
     const data = await response.json();
 
-    console.log("🧠 GEMINI RAW RESPONSE:", JSON.stringify(data));
+    console.log("🧠 GROQ RAW RESPONSE:", JSON.stringify(data));
 
-    // ❌ HANDLE API ERRORS PROPERLY
     if (data.error) {
-      throw new Error(data.error.message || "Gemini API error");
+      throw new Error(data.error.message);
     }
 
-    if (!data.candidates || !data.candidates.length) {
-      throw new Error("No candidates returned from Gemini");
-    }
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const text = data?.choices?.[0]?.message?.content;
 
     if (!text) {
-      throw new Error("Empty Gemini response text");
+      throw new Error("Empty Groq response");
     }
 
     return text;
   } catch (err) {
-    console.error("❌ Gemini error:", err.message);
+    console.error("❌ Groq error:", err.message);
 
     return JSON.stringify({
       error: true,
