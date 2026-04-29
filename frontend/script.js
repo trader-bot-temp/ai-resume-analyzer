@@ -14,19 +14,25 @@ async function analyze() {
   document.getElementById("output").innerText = "Analyzing...";
 
   try {
-    const response = await fetch("https://ominous-dollop-vpvvgp6q5w742p94r-5000.app.github.dev/", {
-      method: "POST",
-      body: formData
-    });
+    const response = await fetch(
+      "https://ominous-dollop-vpvvgp6q5w742p94r-5000.app.github.dev/analyze",
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
 
     const data = await response.json();
 
-    document.getElementById("output").innerText =
-      JSON.stringify(data, null, 2);
+    console.log("SERVER RESPONSE:", data);
 
+    document.getElementById("output").innerText = JSON.stringify(
+      data,
+      null,
+      2
+    );
   } catch (err) {
     document.getElementById("output").innerText =
       "Error: " + err.message;
   }
 }
-

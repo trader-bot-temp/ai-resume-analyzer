@@ -1,37 +1,62 @@
 const express = require("express");
-const cors = require("cors");
 const multer = require("multer");
 const extractText = require("./pdf");
 const callGemini = require("./gemini");
 
 const app = express();
-app.use(cors());
+
+// ================= CORS =================
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+// ================= HEALTH =================
 app.get("/", (req, res) => {
   res.send("Backend running");
 });
 
+// ================= ANALYZE =================
 app.post(
   "/analyze",
-  upload.fields([
-    { name: "resume" },
-    { name: "jd" },
-  ]),
+  upload.fields([{ name: "resume" }, { name: "jd" }]),
   async (req, res) => {
     try {
+      console.log("🔥 ANALYZE HIT");
+      console.log("FILES:", req.files);
+
+      if (!req.files?.resume || !req.files?.jd) {
+        return res.status(400).json({ error: "Missing files" });
+      }
+
       const resumeFile = req.files.resume[0];
       const jdFile = req.files.jd[0];
 
-      const resumeText = await extractText(resumeFile.buffer);
-      const jdText = await extractText(jdFile.buffer);
+      const resumeText = await extractText(
+        resumeFile.buffer,
+        resumeFile.mimetype,
+        resumeFile.originalname
+      );
+
+      const jdText = await extractText(
+        jdFile.buffer,
+        jdFile.mimetype,
+        jdFile.originalname
+      );
+
+      if (!resumeText || !jdText) {
+        return res.status(400).json({
+          error: "Could not extract text",
+        });
+      }
 
       const prompt = `
-You are an expert recruiter.
-
-Compare Resume and Job Description.
-
 Return ONLY JSON:
 {
   "score": number,
@@ -50,11 +75,12 @@ ${resumeText}
       const result = await callGemini(prompt);
 
       res.json({
-        result,
+        success: true,
+        data: result,
       });
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Something went wrong" });
+      console.error("ERROR:", err);
+      res.status(500).json({ error: err.message });
     }
   }
 );
