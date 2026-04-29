@@ -1,28 +1,32 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8"> <!-- 🔥 FIXES WEIRD ICON ISSUE -->
   <title>AI Resume Analyzer</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
   <div class="container">
     <h1>AI Resume Analyzer</h1>
 
-    <label>Upload Resume (PDF)</label>
-    <input type="file" id="resume" />
+    <label>Upload Resumes (max 5)</label>
+    <input type="file" id="resumeInput" multiple accept=".pdf,.doc,.docx,.txt" />
+    <small>Select multiple OR upload one by one</small>
 
-    <label>Upload Job Description (PDF)</label>
+    <div id="fileList"></div>
+
+    <label>Upload Job Description</label>
     <input type="file" id="jd" />
 
-    <button onclick="analyze()">Analyze</button>
+    <button class="primary-btn" onclick="analyze()">Analyze</button>
 
-    <h2>Result</h2>
-    <pre id="output">Waiting for input...</pre>
+    <h2>Results</h2>
+    <div id="output">Waiting for input...</div>
   </div>
 
   <script src="script.js"></script>
 
 </body>
 </html>
-
