@@ -59,7 +59,7 @@ async function analyze() {
 
   try {
     const response = await fetch(
-      "ai-resume-analyzer-production-7176.up.railway.app/analyze-multiple",
+      "https://ai-resume-analyzer-production-7176.up.railway.app/analyze-multiple",
       {
         method: "POST",
         body: formData,
