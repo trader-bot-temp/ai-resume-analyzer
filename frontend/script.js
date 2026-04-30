@@ -59,7 +59,7 @@ async function analyze() {
 
   try {
     const response = await fetch(
-      "https://ominous-dollop-vpvvgp6q5w742p94r-5000.app.github.dev/analyze-multiple",
+      "ai-resume-analyzer-production-7176.up.railway.app/analyze-multiple",
       {
         method: "POST",
         body: formData,
