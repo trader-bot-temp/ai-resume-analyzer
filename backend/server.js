@@ -3,20 +3,15 @@ const multer = require("multer");
 const extractText = require("./pdf");
 const callGemini = require("./gemini");
 
+const jobRoutes = require("./routes/jobs");
+const aiRoutes = require("./routes/ai");
+
 const app = express();
 
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Headers", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  next();
-});
-
-
-// ================= SAFE JSON PARSE =================
+// ================= JSON BODY =================
 app.use(express.json({ limit: "10mb" }));
 
-// ================= CORS (CLEAN VERSION) =================
+// ================= CORS =================
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -29,17 +24,20 @@ app.use((req, res, next) => {
 // ================= MULTER =================
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB safety
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
+
+// ================= ROUTES (IMPORTANT FIX) =================
+app.use("/api/jobs", jobRoutes);
+app.use("/api/ai", aiRoutes);
 
 // ================= HEALTH CHECK =================
 app.get("/", (req, res) => {
   res.json({ status: "Backend running 🚀" });
 });
 
-
 // =====================================================
-// 1. SINGLE ANALYZE (KEEP FOR OLD UI)
+// OLD ANALYZE ROUTE (KEEP FOR BACKWARD COMPATIBILITY)
 // =====================================================
 app.post(
   "/analyze",
@@ -81,7 +79,6 @@ ${resumeText}
       const result = await callGemini(prompt);
 
       let parsed;
-
       try {
         parsed = JSON.parse(
           result.replace(/```json/g, "").replace(/```/g, "").trim()
@@ -89,7 +86,7 @@ ${resumeText}
       } catch {
         parsed = {
           error: true,
-          message: "AI response parsing failed",
+          message: "AI parsing failed",
         };
       }
 
@@ -101,9 +98,8 @@ ${resumeText}
   }
 );
 
-
 // =====================================================
-// 2. MULTI RESUME ANALYZE (MAIN FEATURE)
+// MULTI RESUME ANALYZE
 // =====================================================
 app.post(
   "/analyze-multiple",
@@ -131,8 +127,6 @@ app.post(
           );
 
           const prompt = `
-You are an expert recruiter AI.
-
 Return ONLY JSON:
 {
   "score": number,
@@ -151,7 +145,6 @@ ${resumeText}
           const aiResult = await callGemini(prompt);
 
           let parsed;
-
           try {
             parsed = JSON.parse(
               aiResult.replace(/```json/g, "").replace(/```/g, "").trim()
@@ -169,7 +162,7 @@ ${resumeText}
             name: file.originalname,
             ...parsed,
           });
-        } catch (innerErr) {
+        } catch {
           results.push({
             name: file.originalname,
             error: true,
@@ -190,8 +183,9 @@ ${resumeText}
   }
 );
 
-
 // ================= START SERVER =================
-app.listen(5000, () => {
-  console.log("🚀 Server running on port 5000");
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
