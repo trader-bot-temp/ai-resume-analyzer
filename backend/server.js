@@ -10,36 +10,45 @@ const aiRoutes = require("./routes/ai");
 
 const app = express();
 
-// ================= TRUST PROXY (important for Railway/Vercel) =================
+// ================= TRUST PROXY (Railway / Vercel fix) =================
 app.set("trust proxy", 1);
 
-// ================= CORS (PRODUCTION FIX) =================
+// ================= ALLOWED ORIGINS =================
 const allowedOrigins = [
   "https://ai-resume-analyzer-tan-two.vercel.app",
   "http://localhost:3000",
-  "http://localhost:5173"
+  "http://localhost:5173",
 ];
 
+// ================= CORS CONFIG =================
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow requests with no origin (mobile apps, curl, postman)
+      // allow mobile apps / curl / postman
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
+      if (
+        allowedOrigins.includes(origin) ||
+        process.env.NODE_ENV !== "production"
+      ) {
         return callback(null, true);
-      } else {
-        return callback(null, true); // allow all for now (safe for debugging)
       }
+
+      return callback(null, true); // keep permissive for debugging
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true
+    credentials: true,
   })
 );
 
-// handle preflight explicitly
-app.options("*", cors());
+// ================= FIX PRE-FLIGHT (IMPORTANT) =================
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 // ================= BODY PARSER =================
 app.use(express.json({ limit: "10mb" }));
@@ -58,7 +67,7 @@ app.use("/api/ai", aiRoutes);
 app.get("/", (req, res) => {
   res.json({
     status: "Backend running 🚀",
-    env: process.env.NODE_ENV || "development"
+    env: process.env.NODE_ENV || "development",
   });
 });
 
@@ -115,7 +124,7 @@ ${resumeText}
       } catch {
         parsed = {
           error: true,
-          message: "AI parsing failed"
+          message: "AI parsing failed",
         };
       }
 
@@ -186,18 +195,18 @@ ${resumeText}
               score: 20,
               matched_skills: [],
               missing_skills: [],
-              summary: "Parse failed"
+              summary: "Parse failed",
             };
           }
 
           results.push({
             name: file.originalname,
-            ...parsed
+            ...parsed,
           });
         } catch {
           results.push({
             name: file.originalname,
-            error: true
+            error: true,
           });
         }
       }
@@ -206,7 +215,7 @@ ${resumeText}
 
       res.json({
         success: true,
-        results
+        results,
       });
     } catch (err) {
       console.error("MULTI ANALYZE ERROR:", err);
