@@ -1,8 +1,8 @@
 require("dotenv").config();
 
 const express = require("express");
-const multer = require("multer");
 const cors = require("cors");
+const multer = require("multer");
 
 // routes
 const jobRoutes = require("./routes/jobs");
@@ -10,52 +10,26 @@ const aiRoutes = require("./routes/ai");
 
 const app = express();
 
-/* ================= TRUST PROXY ================= */
+// ================= TRUST PROXY =================
 app.set("trust proxy", 1);
 
-/* ================= CORS CONFIG ================= */
-const allowedOrigins = [
-  "https://ai-resume-analyzer-tan-two.vercel.app",
-  "http://localhost:3000",
-  "http://localhost:5173",
-];
+// ================= CORS =================
+app.use(cors()); // ✅ SIMPLE & WORKS (no custom logic needed)
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // allow requests with no origin (like Postman)
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      } else {
-        return callback(new Error("Not allowed by CORS"));
-      }
-    },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  })
-);
-
-// explicitly handle preflight
-app.options("*", cors());
-
-/* ================= BODY PARSER ================= */
+// ================= BODY PARSER =================
 app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
 
-/* ================= MULTER ================= */
+// ================= MULTER =================
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-/* ================= ROUTES ================= */
+// ================= ROUTES =================
 app.use("/api/jobs", jobRoutes);
 app.use("/api/ai", aiRoutes);
 
-/* ================= HEALTH CHECK ================= */
+// ================= HEALTH =================
 app.get("/", (req, res) => {
   res.json({
     status: "Backend running 🚀",
@@ -63,14 +37,14 @@ app.get("/", (req, res) => {
   });
 });
 
-/* ================= LEGACY ROUTE ================= */
+// ================= LEGACY ANALYZE =================
 app.post(
   "/analyze",
   upload.fields([{ name: "resume" }, { name: "jd" }]),
   async (req, res) => {
     try {
       const extractText = require("./pdf");
-      const callGemini = require("./gemini");
+      const callGemini = require("./services/gemini");
 
       if (!req.files?.resume || !req.files?.jd) {
         return res.status(400).json({ error: "Missing files" });
@@ -123,14 +97,14 @@ ${resumeText}
   }
 );
 
-/* ================= MULTI ANALYZE ================= */
+// ================= MULTI ANALYZE =================
 app.post(
   "/analyze-multiple",
   upload.fields([{ name: "resumes" }, { name: "jd" }]),
   async (req, res) => {
     try {
       const extractText = require("./pdf");
-      const callGemini = require("./gemini");
+      const callGemini = require("./services/gemini");
 
       if (!req.files?.resumes || !req.files?.jd) {
         return res.status(400).json({ error: "Missing files" });
@@ -184,15 +158,24 @@ ${resumeText}
             };
           }
 
-          results.push({ name: file.originalname, ...parsed });
+          results.push({
+            name: file.originalname,
+            ...parsed,
+          });
         } catch {
-          results.push({ name: file.originalname, error: true });
+          results.push({
+            name: file.originalname,
+            error: true,
+          });
         }
       }
 
       results.sort((a, b) => b.score - a.score);
 
-      res.json({ success: true, results });
+      res.json({
+        success: true,
+        results,
+      });
     } catch (err) {
       console.error("MULTI ANALYZE ERROR:", err);
       res.status(500).json({ error: "Server error" });
@@ -200,17 +183,16 @@ ${resumeText}
   }
 );
 
-/* ================= ERROR HANDLER ================= */
+// ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
   console.error("🔥 SERVER ERROR:", err);
-
   res.status(500).json({
     success: false,
     error: err.message || "Internal server error",
   });
 });
 
-/* ================= START SERVER ================= */
+// ================= START =================
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
