@@ -2,7 +2,8 @@ const express = require("express");
 const router = express.Router();
 const supabase = require("../db");
 
-router.post("/", async (req, res, next) => {
+// CREATE JOB
+router.post("/", async (req, res) => {
   try {
     const job = req.body;
 
@@ -23,14 +24,15 @@ router.post("/", async (req, res, next) => {
 
     if (error) throw error;
 
-    res.json({ success: true, job: data[0] });
+    res.json({ success: true, job: data?.[0] });
   } catch (err) {
-    next(err);
+    console.error("JOB CREATE ERROR:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
 // SAVE DRAFT
-router.post("/draft", async (req, res, next) => {
+router.post("/draft", async (req, res) => {
   try {
     const job = req.body;
 
@@ -42,13 +44,15 @@ router.post("/draft", async (req, res, next) => {
           status: "draft",
           created_at: new Date().toISOString(),
         },
-      ]);
+      ])
+      .select();
 
     if (error) throw error;
 
-    res.json({ success: true });
+    res.json({ success: true, job: data?.[0] });
   } catch (err) {
-    next(err);
+    console.error("DRAFT ERROR:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
