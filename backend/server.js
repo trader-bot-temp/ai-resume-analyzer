@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const express = require("express");
+const cors = require("cors");
 const multer = require("multer");
 
 // routes
@@ -9,18 +10,39 @@ const aiRoutes = require("./routes/ai");
 
 const app = express();
 
+// ================= TRUST PROXY (important for Railway/Vercel) =================
+app.set("trust proxy", 1);
+
+// ================= CORS (PRODUCTION FIX) =================
+const allowedOrigins = [
+  "https://ai-resume-analyzer-tan-two.vercel.app",
+  "http://localhost:3000",
+  "http://localhost:5173"
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // allow requests with no origin (mobile apps, curl, postman)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(null, true); // allow all for now (safe for debugging)
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true
+  })
+);
+
+// handle preflight explicitly
+app.options("*", cors());
+
 // ================= BODY PARSER =================
 app.use(express.json({ limit: "10mb" }));
-
-// ================= CORS (CLEAN + SAFE) =================
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-
-  if (req.method === "OPTIONS") return res.sendStatus(204);
-  next();
-});
 
 // ================= MULTER =================
 const upload = multer({
@@ -36,12 +58,12 @@ app.use("/api/ai", aiRoutes);
 app.get("/", (req, res) => {
   res.json({
     status: "Backend running 🚀",
-    env: process.env.NODE_ENV || "development",
+    env: process.env.NODE_ENV || "development"
   });
 });
 
 // =====================================================
-// OLD ANALYZE ROUTE (LEGACY SUPPORT)
+// LEGACY ANALYZE ROUTE
 // =====================================================
 app.post(
   "/analyze",
@@ -91,7 +113,10 @@ ${resumeText}
           result.replace(/```json/g, "").replace(/```/g, "").trim()
         );
       } catch {
-        parsed = { error: true, message: "AI parsing failed" };
+        parsed = {
+          error: true,
+          message: "AI parsing failed"
+        };
       }
 
       res.json({ success: true, data: parsed });
@@ -103,7 +128,7 @@ ${resumeText}
 );
 
 // =====================================================
-// MULTI RESUME ANALYSIS (MAIN FEATURE)
+// MULTI RESUME ANALYSIS
 // =====================================================
 app.post(
   "/analyze-multiple",
@@ -161,18 +186,18 @@ ${resumeText}
               score: 20,
               matched_skills: [],
               missing_skills: [],
-              summary: "Parse failed",
+              summary: "Parse failed"
             };
           }
 
           results.push({
             name: file.originalname,
-            ...parsed,
+            ...parsed
           });
         } catch {
           results.push({
             name: file.originalname,
-            error: true,
+            error: true
           });
         }
       }
@@ -181,7 +206,7 @@ ${resumeText}
 
       res.json({
         success: true,
-        results,
+        results
       });
     } catch (err) {
       console.error("MULTI ANALYZE ERROR:", err);
