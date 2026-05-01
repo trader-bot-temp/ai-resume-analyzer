@@ -1,21 +1,22 @@
+require("dotenv").config();
+
 const express = require("express");
 const multer = require("multer");
-const extractText = require("./pdf");
-const callGemini = require("./gemini");
 
+// routes
 const jobRoutes = require("./routes/jobs");
 const aiRoutes = require("./routes/ai");
 
 const app = express();
 
-// ================= JSON BODY =================
+// ================= BODY PARSER =================
 app.use(express.json({ limit: "10mb" }));
 
-// ================= CORS =================
+// ================= CORS (CLEAN + SAFE) =================
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
 
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
@@ -24,26 +25,32 @@ app.use((req, res, next) => {
 // ================= MULTER =================
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-// ================= ROUTES (IMPORTANT FIX) =================
+// ================= ROUTES =================
 app.use("/api/jobs", jobRoutes);
 app.use("/api/ai", aiRoutes);
 
 // ================= HEALTH CHECK =================
 app.get("/", (req, res) => {
-  res.json({ status: "Backend running 🚀" });
+  res.json({
+    status: "Backend running 🚀",
+    env: process.env.NODE_ENV || "development",
+  });
 });
 
 // =====================================================
-// OLD ANALYZE ROUTE (KEEP FOR BACKWARD COMPATIBILITY)
+// OLD ANALYZE ROUTE (LEGACY SUPPORT)
 // =====================================================
 app.post(
   "/analyze",
   upload.fields([{ name: "resume" }, { name: "jd" }]),
   async (req, res) => {
     try {
+      const extractText = require("./pdf");
+      const callGemini = require("./gemini");
+
       if (!req.files?.resume || !req.files?.jd) {
         return res.status(400).json({ error: "Missing files" });
       }
@@ -84,10 +91,7 @@ ${resumeText}
           result.replace(/```json/g, "").replace(/```/g, "").trim()
         );
       } catch {
-        parsed = {
-          error: true,
-          message: "AI parsing failed",
-        };
+        parsed = { error: true, message: "AI parsing failed" };
       }
 
       res.json({ success: true, data: parsed });
@@ -99,13 +103,16 @@ ${resumeText}
 );
 
 // =====================================================
-// MULTI RESUME ANALYZE
+// MULTI RESUME ANALYSIS (MAIN FEATURE)
 // =====================================================
 app.post(
   "/analyze-multiple",
   upload.fields([{ name: "resumes" }, { name: "jd" }]),
   async (req, res) => {
     try {
+      const extractText = require("./pdf");
+      const callGemini = require("./gemini");
+
       if (!req.files?.resumes || !req.files?.jd) {
         return res.status(400).json({ error: "Missing files" });
       }
