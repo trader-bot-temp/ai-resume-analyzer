@@ -20,7 +20,6 @@ const allowedOrigins = [
   "http://localhost:5173",
 ];
 
-// Use ONLY cors middleware (do NOT mix manual headers)
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -31,7 +30,7 @@ app.use(
         return callback(null, true);
       }
 
-      // allow all in dev/debug (you can lock later)
+      // allow all in dev (safe for now)
       return callback(null, true);
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -40,11 +39,17 @@ app.use(
   })
 );
 
-// Handle preflight requests properly
-app.options("*", cors());
+// ================= FIX PRE-FLIGHT REQUESTS (IMPORTANT) =================
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 // ================= BODY PARSER =================
 app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
 
 // ================= MULTER =================
 const upload = multer({
@@ -64,19 +69,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// ================= ERROR HANDLER =================
-app.use((err, req, res, next) => {
-  console.error("🔥 SERVER ERROR:", err);
-
-  res.status(500).json({
-    success: false,
-    error: err.message || "Internal server error",
-  });
-});
-
-// =====================================================
-// LEGACY ANALYZE ROUTE
-// =====================================================
+// ================= LEGACY ANALYZE ROUTE =================
 app.post(
   "/analyze",
   upload.fields([{ name: "resume" }, { name: "jd" }]),
@@ -139,9 +132,7 @@ ${resumeText}
   }
 );
 
-// =====================================================
-// MULTI RESUME ANALYSIS
-// =====================================================
+// ================= MULTI RESUME ANALYSIS =================
 app.post(
   "/analyze-multiple",
   upload.fields([{ name: "resumes" }, { name: "jd" }]),
@@ -227,19 +218,19 @@ ${resumeText}
   }
 );
 
-// ================= START SERVER =================
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
-
-
+// ================= ERROR HANDLER (MUST BE LAST) =================
 app.use((err, req, res, next) => {
-  console.error("🔥 ERROR:", err);
+  console.error("🔥 SERVER ERROR:", err);
 
   res.status(500).json({
     success: false,
     error: err.message || "Internal server error",
   });
+});
+
+// ================= START SERVER =================
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
