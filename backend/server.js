@@ -10,31 +10,29 @@ const aiRoutes = require("./routes/ai");
 
 const app = express();
 
-// ================= TRUST PROXY (Railway / Vercel fix) =================
+// ================= TRUST PROXY (Railway/Vercel fix) =================
 app.set("trust proxy", 1);
 
-// ================= ALLOWED ORIGINS =================
+// ================= CORS CONFIG =================
 const allowedOrigins = [
   "https://ai-resume-analyzer-tan-two.vercel.app",
   "http://localhost:3000",
   "http://localhost:5173",
 ];
 
-// ================= CORS CONFIG =================
+// Use ONLY cors middleware (do NOT mix manual headers)
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow mobile apps / curl / postman
+      // allow Postman / mobile apps
       if (!origin) return callback(null, true);
 
-      if (
-        allowedOrigins.includes(origin) ||
-        process.env.NODE_ENV !== "production"
-      ) {
+      if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      return callback(null, true); // keep permissive for debugging
+      // allow all in dev/debug (you can lock later)
+      return callback(null, true);
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -42,13 +40,8 @@ app.use(
   })
 );
 
-// ================= FIX PRE-FLIGHT (IMPORTANT) =================
-app.use((req, res, next) => {
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-  next();
-});
+// Handle preflight requests properly
+app.options("*", cors());
 
 // ================= BODY PARSER =================
 app.use(express.json({ limit: "10mb" }));
@@ -68,6 +61,16 @@ app.get("/", (req, res) => {
   res.json({
     status: "Backend running 🚀",
     env: process.env.NODE_ENV || "development",
+  });
+});
+
+// ================= ERROR HANDLER =================
+app.use((err, req, res, next) => {
+  console.error("🔥 SERVER ERROR:", err);
+
+  res.status(500).json({
+    success: false,
+    error: err.message || "Internal server error",
   });
 });
 

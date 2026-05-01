@@ -4,41 +4,31 @@ const callGemini = require("../services/gemini");
 
 router.post("/enhance-jd", async (req, res) => {
   try {
-    const { jd_text } = req.body;
+    const jd_text = req.body?.jd_text;
 
     if (!jd_text) {
-      return res.status(400).json({ error: "jd_text is required" });
+      return res.status(400).json({ error: "jd_text required" });
     }
 
     const prompt = `
-Improve this job description and make it more professional, clear, and structured:
+Improve this job description:
 
 ${jd_text}
 
 Return ONLY JSON:
-{
-  "enhanced_jd": ""
-}
+{ "enhanced_jd": "" }
 `;
 
     const result = await callGemini(prompt);
 
-    let parsed;
-    try {
-      parsed = JSON.parse(result);
-    } catch {
-      parsed = {
-        enhanced_jd: result,
-      };
-    }
-
-    res.json({
+    return res.json({
       success: true,
-      enhanced: parsed,
+      enhanced: result,
     });
+
   } catch (err) {
-    console.error("AI ROUTE ERROR:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("AI ERROR:", err);
+    return res.status(500).json({ error: "AI route failed" });
   }
 });
 
