@@ -1,8 +1,8 @@
 require("dotenv").config();
 
 const express = require("express");
-const cors = require("cors");
 const multer = require("multer");
+const cors = require("cors");
 
 // routes
 const jobRoutes = require("./routes/jobs");
@@ -10,7 +10,7 @@ const aiRoutes = require("./routes/ai");
 
 const app = express();
 
-/* ================= TRUST PROXY (Railway/Vercel) ================= */
+/* ================= TRUST PROXY ================= */
 app.set("trust proxy", 1);
 
 /* ================= CORS CONFIG ================= */
@@ -23,16 +23,14 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow server-to-server / postman
+      // allow requests with no origin (like Postman)
       if (!origin) return callback(null, true);
 
-      // allow frontend + fallback for debugging
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
+      } else {
+        return callback(new Error("Not allowed by CORS"));
       }
-
-      // TEMP: allow all (you can lock later)
-      return callback(null, true);
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -40,7 +38,7 @@ app.use(
   })
 );
 
-/* ================= HANDLE PREFLIGHT ================= */
+// explicitly handle preflight
 app.options("*", cors());
 
 /* ================= BODY PARSER ================= */
@@ -110,7 +108,9 @@ ${resumeText}
 
       let parsed;
       try {
-        parsed = JSON.parse(result.replace(/```json/g, "").replace(/```/g, "").trim());
+        parsed = JSON.parse(
+          result.replace(/```json/g, "").replace(/```/g, "").trim()
+        );
       } catch {
         parsed = { error: true, message: "AI parsing failed" };
       }
@@ -172,7 +172,9 @@ ${resumeText}
 
           let parsed;
           try {
-            parsed = JSON.parse(aiResult.replace(/```json/g, "").replace(/```/g, "").trim());
+            parsed = JSON.parse(
+              aiResult.replace(/```json/g, "").replace(/```/g, "").trim()
+            );
           } catch {
             parsed = {
               score: 20,
@@ -198,7 +200,7 @@ ${resumeText}
   }
 );
 
-/* ================= ERROR HANDLER (MUST BE LAST) ================= */
+/* ================= ERROR HANDLER ================= */
 app.use((err, req, res, next) => {
   console.error("🔥 SERVER ERROR:", err);
 
