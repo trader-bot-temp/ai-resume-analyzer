@@ -9,39 +9,48 @@ const aiRoutes = require("./routes/ai");
 
 const app = express();
 
-// ================= TRUST PROXY =================
+/* ================= TRUST PROXY ================= */
 app.set("trust proxy", 1);
 
-// ================= CORS =================
+/* ================= FIXED CORS ================= */
 app.use(
   cors({
-    origin: true, // allow all origins (safe for debugging)
+    origin: [
+      "https://ai-resume-analyzer-tan-two.vercel.app",
+      "http://localhost:3000",
+      "http://localhost:5173",
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
+/* ✅ IMPORTANT: SAFE OPTIONS HANDLER (NO "*") */
+app.options(/.*/, cors());
 
-// ================= BODY =================
+/* ================= BODY PARSER ================= */
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// ================= MULTER =================
+/* ================= MULTER ================= */
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-// ================= ROUTES =================
+/* ================= ROUTES ================= */
 app.use("/api/jobs", jobRoutes);
 app.use("/api/ai", aiRoutes);
 
-// ================= HEALTH =================
+/* ================= HEALTH CHECK ================= */
 app.get("/", (req, res) => {
-  res.send("Backend running 🚀");
+  res.json({
+    status: "Backend running 🚀",
+    env: process.env.NODE_ENV || "development",
+  });
 });
 
-// ================= ANALYZE =================
+/* ================= PDF + AI ================= */
 app.post(
   "/analyze",
   upload.fields([{ name: "resume" }, { name: "jd" }]),
@@ -66,7 +75,7 @@ app.post(
         req.files.jd[0].originalname
       );
 
-      const result = await callGemini(`
+      const prompt = `
 Return ONLY JSON:
 {
   "score": number,
@@ -80,24 +89,28 @@ ${jdText}
 
 RESUME:
 ${resumeText}
-`);
+`;
+
+      const result = await callGemini(prompt);
 
       let parsed;
       try {
-        parsed = JSON.parse(result.replace(/```json|```/g, "").trim());
+        parsed = JSON.parse(
+          result.replace(/```json/g, "").replace(/```/g, "").trim()
+        );
       } catch {
-        parsed = { error: true };
+        parsed = { error: true, message: "AI parsing failed" };
       }
 
       res.json({ success: true, data: parsed });
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Server error" });
+      console.error("ANALYZE ERROR:", err);
+      res.status(500).json({ error: "Internal server error" });
     }
   }
 );
 
-// ================= MULTI ANALYZE =================
+/* ================= MULTI RESUME ================= */
 app.post(
   "/analyze-multiple",
   upload.fields([{ name: "resumes" }, { name: "jd" }]),
@@ -119,13 +132,14 @@ app.post(
       const results = [];
 
       for (const file of req.files.resumes.slice(0, 5)) {
-        const resumeText = await extractText(
-          file.buffer,
-          file.mimetype,
-          file.originalname
-        );
+        try {
+          const resumeText = await extractText(
+            file.buffer,
+            file.mimetype,
+            file.originalname
+          );
 
-        const ai = await callGemini(`
+          const prompt = `
 Return ONLY JSON:
 {
   "score": number,
@@ -139,29 +153,58 @@ ${jdText}
 
 RESUME:
 ${resumeText}
-`);
+`;
 
-        let parsed;
-        try {
-          parsed = JSON.parse(ai.replace(/```json|```/g, "").trim());
+          const aiResult = await callGemini(prompt);
+
+          let parsed;
+          try {
+            parsed = JSON.parse(
+              aiResult.replace(/```json/g, "").replace(/```/g, "").trim()
+            );
+          } catch {
+            parsed = {
+              score: 20,
+              matched_skills: [],
+              missing_skills: [],
+              summary: "Parse failed",
+            };
+          }
+
+          results.push({
+            name: file.originalname,
+            ...parsed,
+          });
         } catch {
-          parsed = { score: 0 };
+          results.push({
+            name: file.originalname,
+            error: true,
+          });
         }
-
-        results.push({ name: file.originalname, ...parsed });
       }
+
+      results.sort((a, b) => b.score - a.score);
 
       res.json({ success: true, results });
     } catch (err) {
-      console.error(err);
+      console.error("MULTI ANALYZE ERROR:", err);
       res.status(500).json({ error: "Server error" });
     }
   }
 );
 
-// ================= START =================
-const PORT = process.env.PORT || 5000;
+/* ================= GLOBAL ERROR HANDLER ================= */
+app.use((err, req, res, next) => {
+  console.error("🔥 SERVER ERROR:", err);
+  res.status(500).json({
+    success: false,
+    error: err.message || "Internal server error",
+  });
+});
 
-app.listen(PORT, () => {
-  console.log("Server running on", PORT);
+/* ================= START SERVER ================= */
+const PORT = process.env.PORT || 8080;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
