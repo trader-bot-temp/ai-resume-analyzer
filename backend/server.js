@@ -10,10 +10,10 @@ const aiRoutes = require("./routes/ai");
 
 const app = express();
 
-// ================= TRUST PROXY (Railway/Vercel fix) =================
+/* ================= TRUST PROXY (Railway/Vercel) ================= */
 app.set("trust proxy", 1);
 
-// ================= CORS CONFIG =================
+/* ================= CORS CONFIG ================= */
 const allowedOrigins = [
   "https://ai-resume-analyzer-tan-two.vercel.app",
   "http://localhost:3000",
@@ -23,14 +23,15 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow Postman / mobile apps
+      // allow server-to-server / postman
       if (!origin) return callback(null, true);
 
+      // allow frontend + fallback for debugging
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      // allow all in dev (safe for now)
+      // TEMP: allow all (you can lock later)
       return callback(null, true);
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -39,29 +40,24 @@ app.use(
   })
 );
 
-// ================= FIX PRE-FLIGHT REQUESTS (IMPORTANT) =================
-app.use((req, res, next) => {
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-  next();
-});
+/* ================= HANDLE PREFLIGHT ================= */
+app.options("*", cors());
 
-// ================= BODY PARSER =================
+/* ================= BODY PARSER ================= */
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// ================= MULTER =================
+/* ================= MULTER ================= */
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-// ================= ROUTES =================
+/* ================= ROUTES ================= */
 app.use("/api/jobs", jobRoutes);
 app.use("/api/ai", aiRoutes);
 
-// ================= HEALTH CHECK =================
+/* ================= HEALTH CHECK ================= */
 app.get("/", (req, res) => {
   res.json({
     status: "Backend running 🚀",
@@ -69,7 +65,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// ================= LEGACY ANALYZE ROUTE =================
+/* ================= LEGACY ROUTE ================= */
 app.post(
   "/analyze",
   upload.fields([{ name: "resume" }, { name: "jd" }]),
@@ -114,14 +110,9 @@ ${resumeText}
 
       let parsed;
       try {
-        parsed = JSON.parse(
-          result.replace(/```json/g, "").replace(/```/g, "").trim()
-        );
+        parsed = JSON.parse(result.replace(/```json/g, "").replace(/```/g, "").trim());
       } catch {
-        parsed = {
-          error: true,
-          message: "AI parsing failed",
-        };
+        parsed = { error: true, message: "AI parsing failed" };
       }
 
       res.json({ success: true, data: parsed });
@@ -132,7 +123,7 @@ ${resumeText}
   }
 );
 
-// ================= MULTI RESUME ANALYSIS =================
+/* ================= MULTI ANALYZE ================= */
 app.post(
   "/analyze-multiple",
   upload.fields([{ name: "resumes" }, { name: "jd" }]),
@@ -181,9 +172,7 @@ ${resumeText}
 
           let parsed;
           try {
-            parsed = JSON.parse(
-              aiResult.replace(/```json/g, "").replace(/```/g, "").trim()
-            );
+            parsed = JSON.parse(aiResult.replace(/```json/g, "").replace(/```/g, "").trim());
           } catch {
             parsed = {
               score: 20,
@@ -193,24 +182,15 @@ ${resumeText}
             };
           }
 
-          results.push({
-            name: file.originalname,
-            ...parsed,
-          });
+          results.push({ name: file.originalname, ...parsed });
         } catch {
-          results.push({
-            name: file.originalname,
-            error: true,
-          });
+          results.push({ name: file.originalname, error: true });
         }
       }
 
       results.sort((a, b) => b.score - a.score);
 
-      res.json({
-        success: true,
-        results,
-      });
+      res.json({ success: true, results });
     } catch (err) {
       console.error("MULTI ANALYZE ERROR:", err);
       res.status(500).json({ error: "Server error" });
@@ -218,7 +198,7 @@ ${resumeText}
   }
 );
 
-// ================= ERROR HANDLER (MUST BE LAST) =================
+/* ================= ERROR HANDLER (MUST BE LAST) ================= */
 app.use((err, req, res, next) => {
   console.error("🔥 SERVER ERROR:", err);
 
@@ -228,7 +208,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ================= START SERVER =================
+/* ================= START SERVER ================= */
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
