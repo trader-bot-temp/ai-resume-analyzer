@@ -9,4 +9,7 @@ backend/.env
 backend/.env
 .env
 backend/.env
+.envnode_modules
 .env
+backend/.env
+uploads

@@ -11,12 +11,11 @@ async function callGemini(prompt) {
           Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile", // ✅ FIXED MODEL
+          model: "llama-3.3-70b-versatile",
           messages: [
             {
               role: "system",
-              content:
-                "Return ONLY valid JSON. No explanation. No markdown.",
+              content: "Return ONLY valid JSON. No markdown. No explanation.",
             },
             {
               role: "user",
@@ -30,8 +29,6 @@ async function callGemini(prompt) {
 
     const data = await response.json();
 
-    console.log("🧠 GROQ RAW RESPONSE:", JSON.stringify(data));
-
     if (data.error) {
       throw new Error(data.error.message);
     }
@@ -39,12 +36,12 @@ async function callGemini(prompt) {
     const text = data?.choices?.[0]?.message?.content;
 
     if (!text) {
-      throw new Error("Empty Groq response");
+      throw new Error("Empty AI response");
     }
 
     return text;
   } catch (err) {
-    console.error("❌ Groq error:", err.message);
+    console.error("GEMINI ERROR:", err.message);
 
     return JSON.stringify({
       error: true,
