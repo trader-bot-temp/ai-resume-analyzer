@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Create Job</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+
+<body>
+
+<div class="container">
+
+  <h2>Create Job</h2>
+
+  <!-- ================= FORM ================= -->
+  <form id="jobForm">
+
+    <div class="grid">
+
+      <!-- LEFT SIDE -->
+      <div class="card">
+
+        <label>Job Title *</label>
+        <input type="text" id="title" placeholder="Senior Frontend Developer" />
+
+        <label>No. of Openings *</label>
+        <input type="number" id="openings" min="1" value="1" />
+
+        <label>Job Description *</label>
+        <textarea id="jdText" rows="10"
+          placeholder="Paste JD here, or upload PDF below..."></textarea>
+
+      </div>
+
+      <!-- RIGHT SIDE -->
+      <div class="card">
+
+        <label>Department</label>
+        <input type="text" id="department" placeholder="Engineering" />
+
+        <label>Application Deadline</label>
+        <input type="date" id="deadline" />
+
+        <!-- PDF UPLOAD -->
+        <div class="upload-box">
+          <p>Upload JD as PDF (optional)</p>
+          <input type="file" id="jdFile" accept="application/pdf" />
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ================= ACTION BUTTONS ================= -->
+    <div class="actions">
+
+      <button type="submit" class="primary">
+        Create Job
+      </button>
+
+      <button type="button" id="draftBtn">
+        Save as Draft
+      </button>
+
+      <button type="button" id="enhanceBtn" class="ai">
+        ✨ Enhance JD with AI
+      </button>
+
+    </div>
+
+  </form>
+
+</div>
+
+<!-- JS -->
+<script src="../js/job-create.js"></script>
+
+</body>
+</html>
