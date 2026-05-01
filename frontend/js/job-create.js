@@ -1,4 +1,4 @@
-const API = "http://localhost:5000";
+const API = "http://ai-resume-analyzer-production-7176.up.railway.app";
 
 const form = document.getElementById("jobForm");
 
