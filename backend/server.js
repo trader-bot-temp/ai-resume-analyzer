@@ -12,35 +12,17 @@ const app = express();
 // ================= TRUST PROXY =================
 app.set("trust proxy", 1);
 
-// ================= CORS (PRODUCTION SAFE) =================
-const allowedOrigins = [
-  "https://ai-resume-analyzer-tan-two.vercel.app",
-  "http://localhost:3000",
-  "http://localhost:5173",
-];
-
+// ================= CORS =================
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // allow Postman / server-to-server
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      // TEMP: allow all (you can tighten later)
-      return callback(null, true);
-    },
+    origin: true, // allow all origins (safe for debugging)
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// IMPORTANT: handle preflight correctly
-app.options("*", cors());
 
-// ================= BODY PARSER =================
+// ================= BODY =================
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -54,15 +36,12 @@ const upload = multer({
 app.use("/api/jobs", jobRoutes);
 app.use("/api/ai", aiRoutes);
 
-// ================= HEALTH CHECK =================
+// ================= HEALTH =================
 app.get("/", (req, res) => {
-  res.json({
-    status: "Backend running 🚀",
-    env: process.env.NODE_ENV || "development",
-  });
+  res.send("Backend running 🚀");
 });
 
-// ================= LEGACY ANALYZE =================
+// ================= ANALYZE =================
 app.post(
   "/analyze",
   upload.fields([{ name: "resume" }, { name: "jd" }]),
@@ -87,7 +66,7 @@ app.post(
         req.files.jd[0].originalname
       );
 
-      const prompt = `
+      const result = await callGemini(`
 Return ONLY JSON:
 {
   "score": number,
@@ -101,26 +80,19 @@ ${jdText}
 
 RESUME:
 ${resumeText}
-`;
-
-      const result = await callGemini(prompt);
+`);
 
       let parsed;
       try {
-        parsed = JSON.parse(
-          result.replace(/```json/g, "").replace(/```/g, "").trim()
-        );
+        parsed = JSON.parse(result.replace(/```json|```/g, "").trim());
       } catch {
-        parsed = {
-          error: true,
-          message: "AI parsing failed",
-        };
+        parsed = { error: true };
       }
 
       res.json({ success: true, data: parsed });
     } catch (err) {
-      console.error("ANALYZE ERROR:", err);
-      res.status(500).json({ error: "Internal server error" });
+      console.error(err);
+      res.status(500).json({ error: "Server error" });
     }
   }
 );
@@ -147,14 +119,13 @@ app.post(
       const results = [];
 
       for (const file of req.files.resumes.slice(0, 5)) {
-        try {
-          const resumeText = await extractText(
-            file.buffer,
-            file.mimetype,
-            file.originalname
-          );
+        const resumeText = await extractText(
+          file.buffer,
+          file.mimetype,
+          file.originalname
+        );
 
-          const prompt = `
+        const ai = await callGemini(`
 Return ONLY JSON:
 {
   "score": number,
@@ -168,62 +139,29 @@ ${jdText}
 
 RESUME:
 ${resumeText}
-`;
+`);
 
-          const aiResult = await callGemini(prompt);
-
-          let parsed;
-          try {
-            parsed = JSON.parse(
-              aiResult.replace(/```json/g, "").replace(/```/g, "").trim()
-            );
-          } catch {
-            parsed = {
-              score: 20,
-              matched_skills: [],
-              missing_skills: [],
-              summary: "Parse failed",
-            };
-          }
-
-          results.push({
-            name: file.originalname,
-            ...parsed,
-          });
+        let parsed;
+        try {
+          parsed = JSON.parse(ai.replace(/```json|```/g, "").trim());
         } catch {
-          results.push({
-            name: file.originalname,
-            error: true,
-          });
+          parsed = { score: 0 };
         }
+
+        results.push({ name: file.originalname, ...parsed });
       }
 
-      results.sort((a, b) => b.score - a.score);
-
-      res.json({
-        success: true,
-        results,
-      });
+      res.json({ success: true, results });
     } catch (err) {
-      console.error("MULTI ANALYZE ERROR:", err);
+      console.error(err);
       res.status(500).json({ error: "Server error" });
     }
   }
 );
 
-// ================= GLOBAL ERROR HANDLER =================
-app.use((err, req, res, next) => {
-  console.error("🔥 SERVER ERROR:", err);
-
-  res.status(500).json({
-    success: false,
-    error: err.message || "Internal server error",
-  });
-});
-
-// ================= START SERVER =================
+// ================= START =================
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log("Server running on", PORT);
 });
