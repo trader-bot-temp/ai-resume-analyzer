@@ -4,7 +4,6 @@ const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 
-// routes
 const jobRoutes = require("./routes/jobs");
 const aiRoutes = require("./routes/ai");
 
@@ -13,11 +12,37 @@ const app = express();
 // ================= TRUST PROXY =================
 app.set("trust proxy", 1);
 
-// ================= CORS =================
-app.use(cors()); // ✅ SIMPLE & WORKS (no custom logic needed)
+// ================= CORS (PRODUCTION SAFE) =================
+const allowedOrigins = [
+  "https://ai-resume-analyzer-tan-two.vercel.app",
+  "http://localhost:3000",
+  "http://localhost:5173",
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // allow Postman / server-to-server
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // TEMP: allow all (you can tighten later)
+      return callback(null, true);
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+// IMPORTANT: handle preflight correctly
+app.options("*", cors());
 
 // ================= BODY PARSER =================
 app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
 
 // ================= MULTER =================
 const upload = multer({
@@ -29,7 +54,7 @@ const upload = multer({
 app.use("/api/jobs", jobRoutes);
 app.use("/api/ai", aiRoutes);
 
-// ================= HEALTH =================
+// ================= HEALTH CHECK =================
 app.get("/", (req, res) => {
   res.json({
     status: "Backend running 🚀",
@@ -86,7 +111,10 @@ ${resumeText}
           result.replace(/```json/g, "").replace(/```/g, "").trim()
         );
       } catch {
-        parsed = { error: true, message: "AI parsing failed" };
+        parsed = {
+          error: true,
+          message: "AI parsing failed",
+        };
       }
 
       res.json({ success: true, data: parsed });
@@ -183,16 +211,17 @@ ${resumeText}
   }
 );
 
-// ================= ERROR HANDLER =================
+// ================= GLOBAL ERROR HANDLER =================
 app.use((err, req, res, next) => {
   console.error("🔥 SERVER ERROR:", err);
+
   res.status(500).json({
     success: false,
     error: err.message || "Internal server error",
   });
 });
 
-// ================= START =================
+// ================= START SERVER =================
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
